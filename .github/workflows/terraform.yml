@@ -32,6 +32,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
+      - name: Export AWS_PROFILE
+        run: echo "AWS_PROFILE=default" >> $GITHUB_ENV
+
       - name: Terraform Init
         run: terraform init -input=false
 
