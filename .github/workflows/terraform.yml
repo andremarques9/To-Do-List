@@ -33,6 +33,11 @@ jobs:
           aws-region: us-east-2
           profile: root
 
+      - name: Debug AWS credentials file
+        run: |
+          echo ">>> ~/.aws/credentials <<<"
+          cat ~/.aws/credentials || true
+
       - name: Terraform Init
         run: terraform init -input=false
 
