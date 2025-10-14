@@ -15,4 +15,4 @@ resource "aws_dynamodb_table" "main" {
     name = var.sort_key.name
     type = var.sort_key.type
   }
-  }
+}

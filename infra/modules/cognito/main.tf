@@ -12,7 +12,7 @@ resource "aws_cognito_user_pool_client" "userpool_client" {
     "ALLOW_USER_AUTH"
   ]
 
-  supported_identity_providers         = ["COGNITO"]
+  supported_identity_providers = ["COGNITO"]
 }
 
 resource "aws_cognito_user_pool" "pool" {
