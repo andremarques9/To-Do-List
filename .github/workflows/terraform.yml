@@ -1,56 +1,46 @@
-name: 'Terraform'
-
-defaults:
-  run:
-    working-directory: infra
+name: 'Build and Deploy Terraform'
 
 on:
   push:
     branches: [ "dev" ]
   pull_request:
 
-permissions:
-  contents: read
+defaults:
+  run:
+    working-directory: infra
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: maven
-    - name: Build with Maven
-      run: mvn -B clean verify --file pom.xml
-
-  terraform:
-    name: 'Terraform'
+  build_and_deploy:
+    name: 'Build and Deploy'
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn clean package
+        working-directory: .
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Configurar credenciais AWS
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ROOT_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_ROOT_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
-
-      - name: Debug AWS credentials file
-        run: |
-          echo ">>> ~/.aws/credentials <<<"
-          cat ~/.aws/credentials || true
 
       - name: Terraform Init
         run: terraform init -input=false
@@ -62,8 +52,10 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan -input=false
+        run: terraform plan -input=false \
+          -var="jar_file_path=../target/untitled-1.0-SNAPSHOT.jar"
 
       - name: Terraform Apply
-        if: ${{ always() }}
-        run: terraform apply -auto-approve -input=false
+        if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+        run: terraform apply -auto-approve -input=false \
+          -var="jar_file_path=../target/untitled-1.0-SNAPSHOT.jar"
