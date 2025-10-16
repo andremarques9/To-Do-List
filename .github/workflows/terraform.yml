@@ -52,9 +52,10 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -input=false \
-          -var="jar_file_path=../target/untitled-1.0-SNAPSHOT.jar"
+        run: |
+          terraform plan -input=false -var="jar_file_path=../target/untitled-1.0-SNAPSHOT.jar"
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
-        run: terraform apply -auto-approve -input=false -var="jar_file_path=../target/untitled-1.0-SNAPSHOT.jar"
+        run: |
+          terraform apply -auto-approve -input=false -var="jar_file_path=../target/untitled-1.0-SNAPSHOT.jar"
