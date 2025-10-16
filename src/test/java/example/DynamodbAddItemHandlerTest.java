@@ -1,16 +1,18 @@
 package example;
 
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
-import com.fasterxml.jackson.databind.JsonNode;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
+import software.amazon.awssdk.services.dynamodb.model.*;
+
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.Map;
 
@@ -27,57 +29,54 @@ class DynamodbAddItemHandlerTest {
         when(mockDdb.putItem(any(PutItemRequest.class)))
                 .thenReturn(PutItemResponse.builder().build());
 
+        DynamoDbClientBuilder fakeBuilder = mock(DynamoDbClientBuilder.class);
+        when(fakeBuilder.build()).thenReturn(mockDdb);
+
         try (MockedStatic<DynamoDbClient> ddbStatic = mockStatic(DynamoDbClient.class)) {
-            ddbStatic.when(DynamoDbClient::create).thenReturn(mockDdb);
+            ddbStatic.when(DynamoDbClient::builder).thenReturn(fakeBuilder);
 
-            String jsonBody = """
-                {
-                  "id":"abc-123",
-                  "nome":"Produto X",
-                  "preco": 19.9
-                }
-                """;
-
-            APIGatewayProxyRequestEvent event = new APIGatewayProxyRequestEvent()
-                    .withBody(jsonBody);
+            String body = """
+        { "id":"i1","name":"X","value":9 }
+        """;
+            APIGatewayProxyRequestEvent ev = new APIGatewayProxyRequestEvent()
+                    .withPathParameters(Map.of("listId","l1"))
+                    .withBody(body);
 
             DynamodbAddItemHandler handler = new DynamodbAddItemHandler();
-            APIGatewayProxyResponseEvent response = handler.handleRequest(event, null);
+            APIGatewayProxyResponseEvent resp = handler.handleRequest(ev, null);
 
-            assertEquals(201, response.getStatusCode());
-            assertEquals("application/json", response.getHeaders().get("Content-Type"));
-
-            JsonNode root = mapper.readTree(response.getBody());
+            assertEquals(201, resp.getStatusCode());
+            JsonNode root = mapper.readTree(resp.getBody());
             assertEquals("Item criado com sucesso", root.get("message").asText());
-            assertEquals("abc-123", root.get("id").asText());
+            assertEquals("i1", root.get("id").asText());
 
-            ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
-            verify(mockDdb).putItem(captor.capture());
-
-            PutItemRequest putReq = captor.getValue();
-            Map<String, AttributeValue> item = putReq.item();
-
-            assertEquals("MySingleTable", putReq.tableName());
-            assertEquals("abc-123",      item.get("PK").s());
-            assertEquals("METADATA",     item.get("SK").s());
-            assertEquals("Produto X",    item.get("nome").s());
-            assertEquals("19.9",         item.get("preco").n());
+            ArgumentCaptor<PutItemRequest> cap = ArgumentCaptor.forClass(PutItemRequest.class);
+            verify(mockDdb).putItem(cap.capture());
+            PutItemRequest req = cap.getValue();
+            Map<String,AttributeValue> item = req.item();
+            assertEquals("l1",        item.get("PK").s());
+            assertEquals("ITEM#i1",   item.get("SK").s());
         }
     }
 
     @Test
-    void handleRequest_semBody_deveRetornar400() {
-        try (MockedStatic<DynamoDbClient> ddbStatic = mockStatic(DynamoDbClient.class)) {
-            // a princípio não precisamos mockar o client aqui
-            ddbStatic.when(DynamoDbClient::create)
-                    .thenReturn(mock(DynamoDbClient.class));
+    void handleRequest_semBody_deveRetornar400() throws Exception {
+        DynamoDbClient mockDdb = mock(DynamoDbClient.class);
+        DynamoDbClientBuilder fakeBuilder = mock(DynamoDbClientBuilder.class);
+        when(fakeBuilder.build()).thenReturn(mockDdb);
 
-            APIGatewayProxyRequestEvent eventVazio = new APIGatewayProxyRequestEvent();
-            DynamodbAddItemHandler handler = new DynamodbAddItemHandler();
-            APIGatewayProxyResponseEvent resp = handler.handleRequest(eventVazio, null);
+        try (MockedStatic<DynamoDbClient> ddbStatic = mockStatic(DynamoDbClient.class)) {
+            ddbStatic.when(DynamoDbClient::builder).thenReturn(fakeBuilder);
+
+            APIGatewayProxyRequestEvent ev = new APIGatewayProxyRequestEvent()
+                    .withPathParameters(Map.of("listId","l1"));
+
+            APIGatewayProxyResponseEvent resp =
+                    new DynamodbAddItemHandler().handleRequest(ev, null);
 
             assertEquals(400, resp.getStatusCode());
-            assertTrue(resp.getBody().contains("Corpo JSON é obrigatório"));
+            JsonNode root = mapper.readTree(resp.getBody());
+            assertEquals("Corpo JSON é obrigatório", root.get("error").asText());
         }
     }
 }

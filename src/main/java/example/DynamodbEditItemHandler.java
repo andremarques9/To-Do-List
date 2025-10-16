@@ -16,106 +16,103 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 
-public class DynamodbEditItemHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+public class DynamodbEditItemHandler
+        implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     //private static final String TABLE_NAME = System.getenv("TABLE_NAME");
     private static final String TABLE_NAME = "MySingleTable";
-    private final DynamoDbClient ddb = DynamoDbClient.create();
+    private final DynamoDbClient ddb = DynamoDbClient.builder().build();
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(
-            APIGatewayProxyRequestEvent event, Context context) {
+            APIGatewayProxyRequestEvent event,
+            Context context) {
 
         try {
-            context.getLogger().log("PathParameters raw: " + event.getPathParameters());
-            context.getLogger().log("Body raw: " + event.getBody());
-
-            String id = null;
-            Map<String, String> pathParams = event.getPathParameters();
-            if (pathParams != null && pathParams.containsKey("id")) {
-                id = pathParams.get("id");
-            }
-
-            Map<String, Object> bodyMap = null;
-            if (id == null && event.getBody() != null && !event.getBody().isBlank()) {
-                bodyMap = mapper.readValue(
-                        event.getBody(), new TypeReference<>() {});
-                if (bodyMap.containsKey("id")) {
-                    id = bodyMap.get("id").toString();
-                }
-            }
-
-            if (id == null || id.isBlank()) {
+            Map<String,String> path = event.getPathParameters();
+            String listId = path != null ? path.get("listId") : null;
+            String itemId = path != null ? path.get("itemId") : null;
+            if (listId == null || listId.isBlank()
+                    || itemId == null || itemId.isBlank()) {
                 return createResponse(400,
-                        "{\"error\":\"Campo 'id' é obrigatório (rota ou corpo)\"}");
+                        Map.of("error","'listId' e 'itemId' são obrigatórios na rota"));
             }
 
-            if (bodyMap == null) {
-                bodyMap = mapper.readValue(
-                        event.getBody(), new TypeReference<>() {});
-            }
-            bodyMap.remove("id");
-            if (bodyMap.isEmpty()) {
+            String body = event.getBody();
+            if (body == null || body.isBlank()) {
                 return createResponse(400,
-                        "{\"error\":\"Nenhum campo para atualizar\"}");
+                        Map.of("error","Corpo JSON é obrigatório"));
             }
 
-            Map<String, String> exprNames = new HashMap<>();
-            Map<String, AttributeValue> exprValues = new HashMap<>();
+            Map<String,Object> payload = mapper.readValue(
+                    body, new TypeReference<Map<String,Object>>() {});
+            payload.remove("id");
+            if (payload.isEmpty()) {
+                return createResponse(400,
+                        Map.of("error","Nenhum campo para atualizar"));
+            }
+
+            Map<String,String> exprNames  = new HashMap<>();
+            Map<String,AttributeValue> exprValues = new HashMap<>();
             StringJoiner updates = new StringJoiner(", ", "SET ", "");
 
-            for (Map.Entry<String, Object> entry : bodyMap.entrySet()) {
-                String key   = entry.getKey();
-                Object value = entry.getValue();
+            for (var e : payload.entrySet()) {
+                String key   = e.getKey();
+                String nameK = "#" + key;
+                String valK  = ":" + key;
 
-                String nameKey  = "#" + key;
-                String valueKey = ":" + key;
-                exprNames.put(nameKey, key);
+                exprNames.put(nameK, key);
 
-                AttributeValue av;
-                if (value instanceof Number) {
-                    av = AttributeValue.builder().n(value.toString()).build();
-                } else if (value instanceof Boolean) {
-                    av = AttributeValue.builder().bool((Boolean) value).build();
-                } else {
-                    av = AttributeValue.builder().s(value.toString()).build();
-                }
-                exprValues.put(valueKey, av);
-                updates.add(nameKey + " = " + valueKey);
+                Object v = e.getValue();
+                AttributeValue av = (v instanceof Number)
+                        ? AttributeValue.builder().n(v.toString()).build()
+                        : AttributeValue.builder().s(v.toString()).build();
+                exprValues.put(valK, av);
+
+                updates.add(nameK + " = " + valK);
             }
 
-            Map<String, AttributeValue> key = Map.of(
-                    "PK", AttributeValue.builder().s(id).build(),
-                    "SK", AttributeValue.builder().s("METADATA").build()
-            );
-
-            UpdateItemRequest req = UpdateItemRequest.builder()
+            ddb.updateItem(UpdateItemRequest.builder()
                     .tableName(TABLE_NAME)
-                    .key(key)
+                    .key(Map.of(
+                            "PK", AttributeValue.builder().s(listId).build(),
+                            "SK", AttributeValue.builder().s("ITEM#" + itemId).build()
+                    ))
                     .updateExpression(updates.toString())
                     .expressionAttributeNames(exprNames)
                     .expressionAttributeValues(exprValues)
-                    .build();
-
-            ddb.updateItem(req);
-
-            String responseBody = mapper.writeValueAsString(
-                    Map.of("message", "Item atualizado com sucesso", "id", id)
+                    .build()
             );
-            return createResponse(200, responseBody);
+
+            return createResponse(200, Map.of(
+                    "message","Item atualizado com sucesso",
+                    "listId", listId,
+                    "itemId", itemId
+            ));
 
         } catch (Exception e) {
             context.getLogger().log("Erro ao atualizar item: " + e.getMessage());
             return createResponse(500,
-                    "{\"error\":\"Falha interna ao atualizar item\"}");
+                    Map.of("error","Falha interna ao atualizar item"));
         }
     }
 
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, String body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of("Content-Type", "application/json"))
-                .withBody(body);
+    private APIGatewayProxyResponseEvent createResponse(
+            int status,
+            Map<String,Object> bodyObj) {
+
+        try {
+            String json = mapper.writeValueAsString(bodyObj);
+            return new APIGatewayProxyResponseEvent()
+                    .withStatusCode(status)
+                    .withHeaders(Map.of("Content-Type","application/json"))
+                    .withBody(json);
+        } catch (Exception ex) {
+            return new APIGatewayProxyResponseEvent()
+                    .withStatusCode(500)
+                    .withHeaders(Map.of("Content-Type","application/json"))
+                    .withBody("{\"error\":\"Falha interna\"}");
+        }
     }
 }

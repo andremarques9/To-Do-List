@@ -11,89 +11,72 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.Map;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class DynamodbListItemsHandler
         implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     //private static final String TABLE_NAME = System.getenv("TABLE_NAME");
     private static final String TABLE_NAME = "MySingleTable";
-    private final DynamoDbClient DDB = DynamoDbClient.builder().build();
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private final DynamoDbClient ddb = DynamoDbClient.builder().build();
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(
-            APIGatewayProxyRequestEvent event, Context ctx) {
+            APIGatewayProxyRequestEvent event, Context context) {
 
-        Map<String,String> qs = event.getQueryStringParameters();
-        if (qs == null || !qs.containsKey("userId") || qs.get("userId").isBlank()) {
-            return jsonError(400, "Parâmetro 'userId' é obrigatório");
+        String listId = event.getPathParameters() != null
+                ? event.getPathParameters().get("listId")
+                : null;
+        if (listId == null || listId.isBlank()) {
+            return createResponse(400, Map.of("error","'listId' é obrigatório na rota"));
         }
-        String userId = qs.get("userId");
-
 
         QueryRequest qr = QueryRequest.builder()
                 .tableName(TABLE_NAME)
-                .keyConditionExpression("PK = :pkVal AND begins_with(SK, :skPrefix)")
+                .keyConditionExpression("PK = :pk AND begins_with(SK, :prefix)")
                 .expressionAttributeValues(Map.of(
-                        ":pkVal",    AttributeValue.builder().s(userId).build(),
-                        ":skPrefix", AttributeValue.builder().s("ORDER#").build()
+                        ":pk",     AttributeValue.builder().s(listId).build(),
+                        ":prefix", AttributeValue.builder().s("ITEM#").build()
                 ))
                 .build();
 
-        List<Map<String, Object>> parsedItems = DDB.query(qr)
+        List<Map<String,Object>> items = ddb.query(qr)
                 .items()
                 .stream()
-                .map(this::convertAttributeMap)
-                .toList();
+                .map(this::toSimpleMap)
+                .collect(Collectors.toList());
 
-        try {
-            String body = MAPPER.writeValueAsString(parsedItems);
-            return new APIGatewayProxyResponseEvent()
-                    .withStatusCode(200)
-                    .withHeaders(Map.of("Content-Type", "application/json"))
-                    .withBody(body);
-
-        } catch (Exception e) {
-            return new APIGatewayProxyResponseEvent()
-                    .withStatusCode(500)
-                    .withBody("{\"error\":\"Falha ao serializar resposta\"}");
-        }
+        return createResponse(200, items);
     }
 
-    private Map<String, Object> convertAttributeMap(Map<String, AttributeValue> rawItem) {
-        Map<String, Object> result = new HashMap<>();
-        rawItem.forEach((key, val) -> {
-            if (val.s() != null)         result.put(key, val.s());
-            else if (val.n() != null)    result.put(key, Double.parseDouble(val.n()));
-            else if (val.bool() != null) result.put(key, val.bool());
-            else                         result.put(key, val.toString());
-        });
-        return result;
+    private Map<String,Object> toSimpleMap(Map<String,AttributeValue> raw) {
+        return raw.entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                e -> {
+                    var v = e.getValue();
+                    if (v.s() != null) return v.s();
+                    if (v.n() != null) return Double.parseDouble(v.n());
+                    if (v.bool() != null) return v.bool();
+                    return null;
+                }
+        ));
     }
-    private APIGatewayProxyResponseEvent jsonResponse(int status, Object bodyObj) {
+
+    private APIGatewayProxyResponseEvent createResponse(int status, Object bodyObj) {
         try {
-            String body = MAPPER.writeValueAsString(bodyObj);
+            String body = mapper.writeValueAsString(bodyObj);
             return new APIGatewayProxyResponseEvent()
                     .withStatusCode(status)
-                    .withHeaders(Map.of(
-                            "Content-Type", "application/json",
-                            "Access-Control-Allow-Origin", "*"
-                    ))
+                    .withHeaders(Map.of("Content-Type","application/json"))
                     .withBody(body);
         } catch (Exception e) {
-            // Falha de serialização
             return new APIGatewayProxyResponseEvent()
                     .withStatusCode(500)
-                    .withHeaders(Map.of("Content-Type", "application/json"))
-                    .withBody("{\"error\":\"Falha de serialização\"}");
+                    .withHeaders(Map.of("Content-Type","application/json"))
+                    .withBody("{\"error\":\"Falha interna\"}");
         }
-    }
-
-    // Monta uma resposta de erro padronizada
-    private APIGatewayProxyResponseEvent jsonError(int status, String message) {
-        return jsonResponse(status, Map.of("error", message));
     }
 }

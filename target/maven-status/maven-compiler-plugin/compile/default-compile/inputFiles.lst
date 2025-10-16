@@ -1,4 +1,8 @@
 C:\Users\amd50\IdeaProjects\To-Do-List\src\main\java\example\DynamodbAddItemHandler.java
+C:\Users\amd50\IdeaProjects\To-Do-List\src\main\java\example\DynamodbCreateListHandler.java
 C:\Users\amd50\IdeaProjects\To-Do-List\src\main\java\example\DynamodbEditItemHandler.java
+C:\Users\amd50\IdeaProjects\To-Do-List\src\main\java\example\DynamodbEditListHandler.java
+C:\Users\amd50\IdeaProjects\To-Do-List\src\main\java\example\DynamodbGetListHandler.java
 C:\Users\amd50\IdeaProjects\To-Do-List\src\main\java\example\DynamodbListItemsHandler.java
+C:\Users\amd50\IdeaProjects\To-Do-List\src\main\java\example\DynamodbListListsHandler.java
 C:\Users\amd50\IdeaProjects\To-Do-List\src\main\java\example\Hello.java

@@ -15,11 +15,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
 
-public class DynamodbAddItemHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+public class DynamodbAddItemHandler
+        implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     //private static final String TABLE_NAME = System.getenv("TABLE_NAME");
     private static final String TABLE_NAME = "MySingleTable";
-    private final DynamoDbClient ddb = DynamoDbClient.create();
+    private final DynamoDbClient ddb = DynamoDbClient.builder().build();
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
@@ -27,51 +28,67 @@ public class DynamodbAddItemHandler implements RequestHandler<APIGatewayProxyReq
             APIGatewayProxyRequestEvent event, Context context) {
 
         try {
-            if (event.getBody() == null || event.getBody().isBlank()) {
-                return createResponse(400, "{\"error\":\"Corpo JSON é obrigatório\"}");
+            String listId = event.getPathParameters() != null
+                    ? event.getPathParameters().get("listId")
+                    : null;
+            if (listId == null || listId.isBlank()) {
+                return createResponse(400, Map.of("error","'listId' é obrigatório na rota"));
             }
-            Map<String,Object> bodyMap = mapper.readValue(
-                    event.getBody(), new TypeReference<>() {});
 
-            Object idObj = bodyMap.remove("id");
-            if (idObj == null || idObj.toString().isBlank()) {
-                return createResponse(400, "{\"error\":\"Campo 'id' é obrigatório\"}");
+            String body = event.getBody();
+            if (body == null || body.isBlank()) {
+                return createResponse(400, Map.of("error","Corpo JSON é obrigatório"));
             }
-            String id = idObj.toString();
+
+            Map<String,Object> payload = mapper.readValue(body, new TypeReference<>() {});
+            Object idObj = payload.remove("id");
+            if (idObj == null || idObj.toString().isBlank()) {
+                return createResponse(400, Map.of("error","Campo 'id' é obrigatório"));
+            }
+            String itemId = idObj.toString();
 
             Map<String,AttributeValue> item = new HashMap<>();
-            item.put("PK", AttributeValue.builder().s(id).build());
-            item.put("SK", AttributeValue.builder().s("METADATA").build());
+            item.put("PK", AttributeValue.builder().s(listId).build());
+            item.put("SK", AttributeValue.builder().s("ITEM#" + itemId).build());
 
-            bodyMap.forEach((key, val) -> {
-                if (val != null) {
-                    AttributeValue av = (val instanceof Number)
-                            ? AttributeValue.builder().n(val.toString()).build()
-                            : AttributeValue.builder().s(val.toString()).build();
-                    item.put(key, av);
+            payload.forEach((k,v) -> {
+                if (v != null) {
+                    AttributeValue av = (v instanceof Number)
+                            ? AttributeValue.builder().n(v.toString()).build()
+                            : AttributeValue.builder().s(v.toString()).build();
+                    item.put(k, av);
                 }
             });
 
-            PutItemRequest putReq = PutItemRequest.builder()
+            ddb.putItem(PutItemRequest.builder()
                     .tableName(TABLE_NAME)
                     .item(item)
-                    .build();
-            ddb.putItem(putReq);
+                    .build()
+            );
 
-            String responseBody = mapper.writeValueAsString(
-                    Map.of("message", "Item criado com sucesso", "id", id));
-            return createResponse(201, responseBody);
+            return createResponse(201, Map.of(
+                    "message","Item criado com sucesso",
+                    "id", itemId
+            ));
 
         } catch (Exception e) {
             context.getLogger().log("Erro ao inserir item: " + e.getMessage());
-            return createResponse(500, "{\"error\":\"Falha interna ao criar item\"}");
+            return createResponse(500, Map.of("error","Falha interna ao criar item"));
         }
     }
 
-    private APIGatewayProxyResponseEvent createResponse(int statusCode, String body) {
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(statusCode)
-                .withHeaders(Map.of("Content-Type", "application/json"))
-                .withBody(body);
+    private APIGatewayProxyResponseEvent createResponse(int status, Object bodyObj) {
+        try {
+            String body = mapper.writeValueAsString(bodyObj);
+            return new APIGatewayProxyResponseEvent()
+                    .withStatusCode(status)
+                    .withHeaders(Map.of("Content-Type","application/json"))
+                    .withBody(body);
+        } catch (Exception e) {
+            return new APIGatewayProxyResponseEvent()
+                    .withStatusCode(500)
+                    .withHeaders(Map.of("Content-Type","application/json"))
+                    .withBody("{\"error\":\"Falha interna\"}");
+        }
     }
 }

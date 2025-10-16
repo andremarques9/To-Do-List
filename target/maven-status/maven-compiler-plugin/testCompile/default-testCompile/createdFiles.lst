@@ -1,4 +1,4 @@
-example\DynamodbAddItemHandlerTest.class
-example\HelloTest.class
 example\DynamodbListItemsHandlerTest.class
 example\DynamodbEditItemHandlerTest.class
+example\DynamodbAddItemHandlerTest.class
+example\HelloTest.class
