@@ -1,6 +1,6 @@
 example\DynamodbAddItemHandler.class
-example\DynamodbEditItemHandler$1.class
 example\DynamodbEditItemHandler.class
+example\Hello.class
+example\DynamodbEditItemHandler$1.class
 example\DynamodbAddItemHandler$1.class
 example\DynamodbListItemsHandler.class
-example\Hello.class
