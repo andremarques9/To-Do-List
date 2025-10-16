@@ -61,7 +61,20 @@ resource "aws_api_gateway_deployment" "this" {
     aws_api_gateway_integration.patch_lambda
   ]
   rest_api_id = aws_api_gateway_rest_api.this.id
-  triggers    = { redeployment = timestamp() }
+  triggers    = {
+    redeployment = sha1(jsonencode({
+      resources = aws_api_gateway_rest_api.this.root_resource_id
+      methods   = [
+        aws_api_gateway_method.get.http_method,
+        aws_api_gateway_method.post.http_method,
+        aws_api_gateway_method.patch.http_method,
+      ]
+
+    }))
+  }
+    lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_api_gateway_stage" "this" {

@@ -142,5 +142,4 @@ resource "aws_lambda_permission" "allow_patch" {
   function_name = module.lambda.edit_item_function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${module.api_gateway.execution_arn}/*/PATCH"
-
 }
