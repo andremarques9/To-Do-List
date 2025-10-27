@@ -83,19 +83,19 @@ data "aws_dynamodb_table" "existing" {
 }
 
 module "api_gateway" {
-  source           = "./modules/api_gateway"
-  aws_region       = var.aws_region
-  api_name         = "apiREST"
-  stage_name       = "prod"
-  lambda_list_lists_uri   = module.lambda.list_lists_invoke_arn
-  lambda_create_list_uri  = module.lambda.create_list_invoke_arn
-  lambda_get_list_uri     = module.lambda.get_list_invoke_arn
-  lambda_edit_list_uri    = module.lambda.edit_list_invoke_arn
-  lambda_list_items_uri   = module.lambda.list_items_invoke_arn
-  lambda_add_item_uri     = module.lambda.add_item_invoke_arn
-  lambda_edit_item_uri    = module.lambda.edit_item_invoke_arn
-  lambda_delete_item_uri  = module.lambda.delete_item_invoke_arn
-  user_pool_arn    = module.cognito.user_pool_arn
+  source                 = "./modules/api_gateway"
+  aws_region             = var.aws_region
+  api_name               = "apiREST"
+  stage_name             = "prod"
+  lambda_list_lists_uri  = module.lambda.list_lists_invoke_arn
+  lambda_create_list_uri = module.lambda.create_list_invoke_arn
+  lambda_get_list_uri    = module.lambda.get_list_invoke_arn
+  lambda_edit_list_uri   = module.lambda.edit_list_invoke_arn
+  lambda_list_items_uri  = module.lambda.list_items_invoke_arn
+  lambda_add_item_uri    = module.lambda.add_item_invoke_arn
+  lambda_edit_item_uri   = module.lambda.edit_item_invoke_arn
+  lambda_delete_item_uri = module.lambda.delete_item_invoke_arn
+  user_pool_arn          = module.cognito.user_pool_arn
 }
 
 module "cognito" {
