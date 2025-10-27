@@ -49,3 +49,68 @@ resource "aws_lambda_function" "edit_item" {
   memory_size = 512
   timeout     = 30
 }
+
+resource "aws_lambda_function" "create_list" {
+  function_name = "DynamodbCreateListFunction"
+  runtime       = var.runtime
+  handler       = "example.DynamodbCreateListHandler::handleRequest"
+  role          = var.role_arn
+
+  filename         = var.jar_file_path
+  source_code_hash = filebase64sha256(var.jar_file_path)
+
+  memory_size = 512
+  timeout     = 30
+}
+
+resource "aws_lambda_function" "delete_item" {
+  function_name = "DynamodbDeleteItemFunction"
+  runtime       = var.runtime
+  handler       = "example.DynamodbDeleteItemHandler::handleRequest"
+  role          = var.role_arn
+
+  filename         = var.jar_file_path
+  source_code_hash = filebase64sha256(var.jar_file_path)
+
+  memory_size = 512
+  timeout     = 30
+}
+
+resource "aws_lambda_function" "edit_list" {
+  function_name = "DynamodbEditListFunction"
+  runtime       = var.runtime
+  handler       = "example.DynamodbEditListHandler::handleRequest"
+  role          = var.role_arn
+
+  filename         = var.jar_file_path
+  source_code_hash = filebase64sha256(var.jar_file_path)
+
+  memory_size = 512
+  timeout     = 30
+}
+
+resource "aws_lambda_function" "get_list" {
+  function_name = "DynamodbGetListFunction"
+  runtime       = var.runtime
+  handler       = "example.DynamodbGetListHandler::handleRequest"
+  role          = var.role_arn
+
+  filename         = var.jar_file_path
+  source_code_hash = filebase64sha256(var.jar_file_path)
+
+  memory_size = 512
+  timeout     = 30
+}
+
+resource "aws_lambda_function" "list_lists" {
+  function_name = "DynamodbListListsFunction"
+  runtime       = var.runtime
+  handler       = "example.DynamodbListListsHandler::handleRequest"
+  role          = var.role_arn
+
+  filename         = var.jar_file_path
+  source_code_hash = filebase64sha256(var.jar_file_path)
+
+  memory_size = 512
+  timeout     = 30
+}

@@ -8,24 +8,49 @@ variable "api_description" {
   default = "API REST gerenciada via Terraform"
 }
 
-variable "lambda_post_uri" {
+variable "lambda_list_lists_uri" {
+  description = "URI da função Lambda para listar listas"
   type        = string
-  description = "Invoke ARN da Lambda POST"
 }
 
-variable "lambda_get_uri" {
+variable "lambda_create_list_uri" {
+  description = "URI da função Lambda para criar lista"
   type        = string
-  description = "Invoke ARN da Lambda GET"
 }
 
-variable "lambda_patch_uri" {
+variable "lambda_get_list_uri" {
+  description = "URI da função Lambda para buscar uma lista"
   type        = string
-  description = "Invoke ARN da Lambda PATCH"
+}
+
+variable "lambda_edit_list_uri" {
+  description = "URI da função Lambda para editar uma lista"
+  type        = string
+}
+
+variable "lambda_list_items_uri" {
+  description = "URI da função Lambda para listar itens"
+  type        = string
+}
+
+variable "lambda_add_item_uri" {
+  description = "URI da função Lambda para adicionar item"
+  type        = string
+}
+
+variable "lambda_edit_item_uri" {
+  description = "URI da função Lambda para editar item"
+  type        = string
+}
+
+variable "lambda_delete_item_uri" {
+  description = "URI da função Lambda para deletar item"
+  type        = string
 }
 
 variable "stage_name" {
-  type    = string
-  default = "prod"
+  description = "Nome do estágio da API"
+  type        = string
 }
 
 variable "aws_region" {
